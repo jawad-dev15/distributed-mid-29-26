@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-gateway
+  namespace: distributed-storage
+  labels:
+    app: storage-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: storage-gateway
+  template:
+    metadata:
+      labels:
+        app: storage-gateway
+    spec:
+      containers:
+      - name: gateway
+        image: distributed-storage/gateway:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: METADATA_DB_URL
+          value: postgresql://postgres:postgres@metadata-service:5432/distributed_metadata
+        - name: RABBITMQ_URL
+          value: amqp://guest:guest@rabbitmq-service:5672/
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /api/cluster/status
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/cluster/status
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage-gateway-service
+  namespace: distributed-storage
+spec:
+  type: LoadBalancer
+  selector:
+    app: storage-gateway
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: storage-gateway-hpa
+  namespace: distributed-storage
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: storage-gateway
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75

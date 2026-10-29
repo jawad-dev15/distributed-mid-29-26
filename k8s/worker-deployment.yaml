@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: distributed-worker-deployment
+  labels:
+    app: distributed-worker
+spec:
+  replicas: 3  # Run 3 distributed worker pods concurrently
+  selector:
+    matchLabels:
+      app: distributed-worker
+  template:
+    metadata:
+      labels:
+        app: distributed-worker
+    spec:
+      containers:
+        - name: worker
+          image: distributed-worker:v1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: RABBITMQ_HOST
+              value: "host.docker.internal"
+            - name: WORKER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: METRICS_PORT
+              value: "8000"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

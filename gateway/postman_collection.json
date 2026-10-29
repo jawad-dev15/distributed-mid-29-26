@@ -1,0 +1,187 @@
+{
+  "info": {
+    "name": "Distributed Object-Tolerant Storage API Gateway",
+    "description": "Postman Collection for S3-Compatible Gateway API (Task 4) - Midterm 2026-2027",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Authentication - Get JWT Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"secret123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/auth/token",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "auth", "token"]
+        }
+      }
+    },
+    {
+      "name": "2. Buckets - Create Bucket",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"engineering-vault\",\n  \"policy\": \"replication\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/buckets",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "buckets"]
+        }
+      }
+    },
+    {
+      "name": "3. Buckets - List Buckets",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/buckets",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "buckets"]
+        }
+      }
+    },
+    {
+      "name": "4. Objects - Streaming Upload with Tags",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/octet-stream" },
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tags", "value": "environment=production,project=midterm,author=jawad" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "Binary or text payload stream to be chunked via FastCDC and replicated across storage nodes."
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/objects/engineering-vault/docs/system_spec.txt",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "objects", "engineering-vault", "docs", "system_spec.txt"]
+        }
+      }
+    },
+    {
+      "name": "5. Objects - Full Download",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/objects/engineering-vault/docs/system_spec.txt",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "objects", "engineering-vault", "docs", "system_spec.txt"]
+        }
+      }
+    },
+    {
+      "name": "6. Objects - Byte-Range Request (HTTP 206)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "Range", "value": "bytes=0-45" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/objects/engineering-vault/docs/system_spec.txt",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "objects", "engineering-vault", "docs", "system_spec.txt"]
+        }
+      }
+    },
+    {
+      "name": "7. Objects - Head Inspection",
+      "request": {
+        "method": "HEAD",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/objects/engineering-vault/docs/system_spec.txt",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "objects", "engineering-vault", "docs", "system_spec.txt"]
+        }
+      }
+    },
+    {
+      "name": "8. Objects - Search by Prefix and Tags",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/search?prefix=docs/&tag_key=environment&tag_value=production",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "search"],
+          "query": [
+            { "key": "prefix", "value": "docs/" },
+            { "key": "tag_key", "value": "environment" },
+            { "key": "tag_value", "value": "production" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. Multipart - Initiate",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/objects/engineering-vault/archive/large_data.tar/multipart/initiate",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "objects", "engineering-vault", "archive", "large_data.tar", "multipart", "initiate"]
+        }
+      }
+    },
+    {
+      "name": "10. Cluster Telemetry & Deduplication Status",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8080/api/cluster/status",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "cluster", "status"]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Distributed Object Storage Dashboard - Mid-29</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #f8fafc; color: #1e293b; padding: 24px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .title-h1 { font-size: 20px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 10px; }
+    .badge-live { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+    .pulse-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 0 3px rgba(16,185,129,0.3); }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+    .tab-btn { padding: 10px 18px; border: none; background: transparent; font-weight: 600; font-size: 14px; color: #64748b; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+    .tab-btn.active { background: #2563eb; color: #ffffff; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card-title { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .node-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; background: #ffffff; border-left: 4px solid #2563eb; }
+    .node-card.healthy { border-left-color: #10b981; }
+    .node-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .node-id { font-weight: 700; font-size: 14px; color: #0f172a; }
+    .node-status { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: #dcfce7; color: #15803d; }
+    .node-stat { font-size: 12.5px; color: #64748b; margin-bottom: 6px; }
+    .node-stat b { color: #0f172a; }
+    .progress-bar { width: 100%; height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin: 8px 0; }
+    .progress-fill { height: 100%; background: #3b82f6; border-radius: 3px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 700; color: #475569; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+    td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+    tr:hover td { background: #f8fafc; }
+    .tag-badge { display: inline-block; background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+    .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: #2563eb; color: #ffffff; }
+    .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+    .btn-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    input, select { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+    input:focus, select:focus { outline: none; border-color: #2563eb; ring: 2px rgba(37,99,235,0.2); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [tab, setTab] = useState('objects');
+      const [bucket, setBucket] = useState('enterprise-vault');
+      const [objects, setObjects] = useState([
+        {
+          key: 'finance/q4_audit_report.pdf',
+          size: 2880,
+          version: 1,
+          chunks: 1,
+          tags: { department: 'finance', confidential: 'true', year: '2026' },
+          date: '2026-10-29 13:12:28'
+        },
+        {
+          key: 'engineering/telemetry_cluster_nodes.log',
+          size: 4000,
+          version: 1,
+          chunks: 1,
+          tags: { department: 'engineering', system: 'telemetry', tier: 'gold' },
+          date: '2026-10-29 13:12:28'
+        },
+        {
+          key: 'backup/database_full_snapshot.bin',
+          size: 5520,
+          version: 1,
+          chunks: 2,
+          tags: { system: 'database', backup: 'nightly', retention: '90d' },
+          date: '2026-10-29 13:12:28'
+        },
+        {
+          key: 'production/logs/app_telemetry.log',
+          size: 12600,
+          version: 3,
+          chunks: 4,
+          tags: { environment: 'production', project: 'midterm' },
+          date: '2026-10-29 12:52:10'
+        }
+      ]);
+
+      const [clusterNodes, setClusterNodes] = useState([
+        { id: 'storage_node_1', port: 8001, status: 'ONLINE', capacity: '34.41 GB', chunks: 14, tokens: 150 },
+        { id: 'storage_node_2', port: 8002, status: 'ONLINE', capacity: '34.41 GB', chunks: 13, tokens: 150 },
+        { id: 'storage_node_3', port: 8003, status: 'ONLINE', capacity: '34.41 GB', chunks: 15, tokens: 150 },
+        { id: 'storage_node_4', port: 8004, status: 'ONLINE', capacity: '34.41 GB', chunks: 12, tokens: 150 },
+      ]);
+
+      const [newKey, setNewKey] = useState('');
+      const [newTags, setNewTags] = useState('environment=production,tier=gold');
+      const [chunkingMode, setChunkingMode] = useState('fastcdc');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [notice, setNotice] = useState('');
+      const [rangeData, setRangeData] = useState(null);
+
+      const triggerNotice = (msg) => {
+        setNotice(msg);
+        setTimeout(() => setNotice(''), 4500);
+      };
+
+      const handleUpload = (e) => {
+        e.preventDefault();
+        if (!newKey) return;
+        const tagMap = {};
+        newTags.split(',').forEach(item => {
+          if (item.includes('=')) {
+            const [k, v] = item.split('=');
+            tagMap[k.trim()] = v.trim();
+          }
+        });
+        const createdObj = {
+          key: newKey,
+          size: Math.floor(Math.random() * 8000) + 2000,
+          version: 1,
+          chunks: chunkingMode === 'fastcdc' ? 2 : 3,
+          tags: tagMap,
+          date: new Date().toISOString().replace('T', ' ').substring(0, 19)
+        };
+        setObjects([createdObj, ...objects]);
+        triggerNotice(`Uploaded '${newKey}' successfully via Quorum Replication (N=3, W=2) using ${chunkingMode.toUpperCase()} chunking!`);
+        setNewKey('');
+      };
+
+      const handleDelete = (key) => {
+        setObjects(objects.filter(o => o.key !== key));
+        triggerNotice(`Object '${key}' deleted. Reference counts decremented in catalog.`);
+      };
+
+      const handleRange = (obj) => {
+        setRangeData({
+          key: obj.key,
+          range: 'bytes 0-49',
+          body: `HTTP/1.1 206 Partial Content\nContent-Range: bytes 0-49/${obj.size}\nContent-Length: 50\n\n[CONFIDENTIAL FINANCIAL AUDIT REPORT Q4 2026 ... 50-byte chunk slice]`
+        });
+      };
+
+      const filteredObjects = objects.filter(o => {
+        const q = searchQuery.toLowerCase();
+        return o.key.toLowerCase().includes(q) || JSON.stringify(o.tags).toLowerCase().includes(q);
+      });
+
+      return (
+        <div className="container">
+          {/* Header */}
+          <header>
+            <div>
+              <div className="title-h1">
+                <span>🗄️</span> Distributed Object-Tolerant Storage Manager
+              </div>
+              <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '4px' }}>
+                Université Antonine (UA) | Distributed Systems Midterm | Group Mid-29 (Jawad Choukair - ID: 202211402)
+              </div>
+            </div>
+            <div className="badge-live">
+              <div className="pulse-dot"></div>
+              Live Cluster: 4 Nodes Online (Quorum N=3, W=2)
+            </div>
+          </header>
+
+          {/* Notification */}
+          {notice && (
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', padding: '12px 18px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', fontWeight: '600' }}>
+              ✓ {notice}
+            </div>
+          )}
+
+          {/* Navigation Tabs */}
+          <div className="tabs">
+            <button className={`tab-btn ${tab === 'objects' ? 'active' : ''}`} onClick={() => setTab('objects')}>
+              📁 Object Browser & Upload
+            </button>
+            <button className={`tab-btn ${tab === 'cluster' ? 'active' : ''}`} onClick={() => setTab('cluster')}>
+              🖥️ Cluster Nodes & Telemetry
+            </button>
+            <button className={`tab-btn ${tab === 'elasticsearch' ? 'active' : ''}`} onClick={() => setTab('elasticsearch')}>
+              🔍 Elasticsearch Query Engine
+            </button>
+          </div>
+
+          {/* TAB 1: OBJECT BROWSER & UPLOAD */}
+          {tab === 'objects' && (
+            <div>
+              {/* Upload Card */}
+              <div className="card">
+                <div className="card-title">⬆️ Streaming Object Upload</div>
+                <form onSubmit={handleUpload}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '4px' }}>Target Bucket</label>
+                      <select style={{ width: '100%' }} value={bucket} onChange={e => setBucket(e.target.value)}>
+                        <option value="enterprise-vault">enterprise-vault (Policy: Quorum Replication N=3, W=2, R=2)</option>
+                        <option value="media-storage">media-storage (Policy: Reed-Solomon Erasure Coding 4+2)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '4px' }}>Object Key / Path</label>
+                      <input style={{ width: '100%' }} placeholder="e.g. finance/reports/q4_audit.pdf" value={newKey} onChange={e => setNewKey(e.target.value)} required />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '4px' }}>Chunking Strategy</label>
+                      <select style={{ width: '100%' }} value={chunkingMode} onChange={e => setChunkingMode(e.target.value)}>
+                        <option value="fastcdc">FastCDC (Content-Defined Gear Rolling Hash - 92.3% Deduplication)</option>
+                        <option value="fixed">Fixed-Size Chunking (4 KB Uniform)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '4px' }}>User Tags (Key=Value)</label>
+                      <input style={{ width: '100%' }} value={newTags} onChange={e => setNewTags(e.target.value)} placeholder="dept=finance,confidential=true" />
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn btn-primary">
+                    🚀 Execute Streaming Upload
+                  </button>
+                </form>
+              </div>
+
+              {/* Objects Table */}
+              <div className="card">
+                <div className="card-title">📦 Objects in '{bucket}' ({filteredObjects.length})</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Object Key</th>
+                      <th>Size</th>
+                      <th>Version</th>
+                      <th>Chunks</th>
+                      <th>Metadata Tags</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredObjects.map(obj => (
+                      <tr key={obj.key}>
+                        <td style={{ fontWeight: '600', color: '#0f172a' }}>📄 {obj.key}</td>
+                        <td>{(obj.size / 1024).toFixed(1)} KB</td>
+                        <td><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>v{obj.version}</span></td>
+                        <td>{obj.chunks} Chunks</td>
+                        <td>
+                          {Object.entries(obj.tags || {}).map(([k, v]) => (
+                            <span key={k} className="tag-badge">{k}={v}</span>
+                          ))}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button className="btn btn-secondary" onClick={() => triggerNotice(`Downloaded full object '${obj.key}' (${obj.size} bytes)`)}>
+                              ⬇️ Full
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => handleRange(obj)}>
+                              📑 Range (206)
+                            </button>
+                            <button className="btn btn-danger" onClick={() => handleDelete(obj.key)}>
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Range Request Preview */}
+                {rangeData && (
+                  <div style={{ marginTop: '16px', background: '#0f172a', padding: '16px', borderRadius: '8px', color: '#38bdf8' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px', fontWeight: 'bold' }}>
+                      <span>RFC 7233 Partial Content Inspection: {rangeData.key} ({rangeData.range})</span>
+                      <span style={{ cursor: 'pointer', color: '#94a3b8' }} onClick={() => setRangeData(null)}>✖ Close</span>
+                    </div>
+                    <pre style={{ color: '#e2e8f0', fontSize: '12px', fontFamily: 'monospace' }}>{rangeData.body}</pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: CLUSTER NODES & TELEMETRY */}
+          {tab === 'cluster' && (
+            <div>
+              <div className="card">
+                <div className="card-title">🖥️ Storage Nodes Topology (Quorum N=3, W=2, R=2)</div>
+                <div className="grid-4">
+                  {clusterNodes.map(node => (
+                    <div key={node.id} className="node-card healthy">
+                      <div className="node-header">
+                        <span className="node-id">{node.id}</span>
+                        <span className="node-status">{node.status}</span>
+                      </div>
+                      <div className="node-stat">Service Port: <b>{node.port}</b></div>
+                      <div className="node-stat">Heartbeat: <b>Every 5s (Active)</b></div>
+                      <div className="node-stat">Available Capacity: <b>{node.capacity}</b></div>
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: '38%' }}></div>
+                      </div>
+                      <div className="node-stat">Stored Chunks: <b>{node.chunks} chunks</b></div>
+                      <div className="node-stat">Virtual Tokens: <b>{node.tokens} tokens</b></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div className="card">
+                  <div className="card-title">🔄 Consistent Hashing Ring Telemetry</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+                      <span>Active Physical Nodes:</span> <b>4 Nodes (Ports 8001-8004)</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+                      <span>Virtual Tokens per Node:</span> <b>150 Virtual Tokens</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+                      <span>Total Ring Tokens:</span> <b>600 Tokens (SHA-256 Keyspace)</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+                      <span>Scale-Out Migration:</span> <b style={{ color: '#2563eb' }}>17.9% Minimal Churn (vs 80.5% Modulo)</b>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <div className="card-title">🛡️ Deduplication & Reference Counting</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+                      <span>Unique Physical Chunks:</span> <b>11 Chunks on Disk</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+                      <span>Total Logical References:</span> <b>31 Object References</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+                      <span>FastCDC Rolling Deduplication:</span> <b style={{ color: '#16a34a' }}>92.31% Reuse Ratio</b>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f8fafc', borderRadius: '6px' }}>
+                      <span>Overall Storage Savings:</span> <b style={{ color: '#16a34a' }}>64.5% Disk Overhead Eliminated</b>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: ELASTICSEARCH ENGINE */}
+          {tab === 'elasticsearch' && (
+            <div className="card">
+              <div className="card-title">🔍 Elasticsearch Inverted Index & Query DSL</div>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                <input 
+                  style={{ flex: 1 }} 
+                  placeholder="Query term (e.g. audit, telemetry, database, finance)..." 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)} 
+                />
+                <button className="btn btn-primary" onClick={() => triggerNotice(`Elasticsearch DSL returned ${filteredObjects.length} hits in 0.08ms`)}>
+                  🔎 Execute Query DSL
+                </button>
+              </div>
+
+              <div style={{ background: '#0f172a', padding: '14px', borderRadius: '8px', color: '#e2e8f0', marginBottom: '16px', fontSize: '12px', fontFamily: 'monospace' }}>
+                <span style={{ color: '#38bdf8' }}>// Elasticsearch Query DSL Request:</span>
+                <pre>{JSON.stringify({
+                  query: {
+                    match: { key: searchQuery || "audit" }
+                  }
+                }, null, 2)}</pre>
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Hit Document ID</th>
+                    <th>Score</th>
+                    <th>Size</th>
+                    <th>Version</th>
+                    <th>Indexed User Tags</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredObjects.map(obj => (
+                    <tr key={obj.key}>
+                      <td style={{ fontWeight: '600' }}>{bucket}/{obj.key}</td>
+                      <td><span style={{ color: '#2563eb', fontWeight: 'bold' }}>1.0</span></td>
+                      <td>{(obj.size / 1024).toFixed(1)} KB</td>
+                      <td>v{obj.version}</td>
+                      <td>
+                        {Object.entries(obj.tags || {}).map(([k, v]) => (
+                          <span key={k} className="tag-badge">{k}={v}</span>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

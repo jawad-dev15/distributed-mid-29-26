@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: storage-node
+  namespace: distributed-storage
+  labels:
+    app: storage-node
+spec:
+  serviceName: storage-nodes-headless
+  replicas: 4
+  selector:
+    matchLabels:
+      app: storage-node
+  template:
+    metadata:
+      labels:
+        app: storage-node
+    spec:
+      containers:
+      - name: storage-node
+        image: distributed-storage/node:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: storage-http
+        env:
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: STORAGE_DIR
+          value: /data/chunks
+        - name: METADATA_URL
+          value: http://metadata-service:8000/api/heartbeat
+        - name: HEARTBEAT_INTERVAL
+          value: "5"
+        volumeMounts:
+        - name: chunk-storage
+          mountPath: /data
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 2
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+  volumeClaimTemplates:
+  - metadata:
+      name: chunk-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage-nodes-headless
+  namespace: distributed-storage
+spec:
+  clusterIP: None
+  selector:
+    app: storage-node
+  ports:
+  - port: 8000
+    name: http

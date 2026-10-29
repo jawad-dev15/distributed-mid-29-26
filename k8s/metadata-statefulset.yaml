@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: metadata-cluster
+  namespace: distributed-storage
+  labels:
+    app: metadata-service
+spec:
+  serviceName: metadata-service-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: metadata-service
+  template:
+    metadata:
+      labels:
+        app: metadata-service
+    spec:
+      containers:
+      - name: postgres-ha
+        image: bitnami/postgresql-repmgr:16
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRESQL_REPLICATION_MODE
+          value: master
+        - name: POSTGRESQL_REPLICATION_USER
+          value: repl_user
+        - name: POSTGRESQL_REPLICATION_PASSWORD
+          value: repl_password_2026
+        - name: POSTGRESQL_DATABASE
+          value: distributed_metadata
+        volumeMounts:
+        - name: metadata-storage
+          mountPath: /bitnami/postgresql
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: metadata-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metadata-service
+  namespace: distributed-storage
+spec:
+  selector:
+    app: metadata-service
+  ports:
+  - port: 5432
+    targetPort: 5432
